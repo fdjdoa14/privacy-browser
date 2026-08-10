@@ -1,1 +1,20 @@
-bmFtZTogVGVzdCBCdWlsZAoKb246CiAgcHVzaDoKICAgIGJyYW5jaGVzOiBbIG1haW4gXQogIHB1bGxfcmVxdWVzdDoKICAgIGJyYW5jaGVzOiBbIG1haW4gXQoKam9iczoKICBidWlsZDoKICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHN0ZXBzOgogICAgICAtIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXRAdjQKICAgICAgLSBuYW1lOiBSdW4gYnVpbGQgc2NyaXB0CiAgICAgICAgcnVuOiBweXRob24zIGJ1aWxkLnB5CiAgICAgIC0gbmFtZTogVXBsb2FkIEFQSwogICAgICAgIHVzZXM6IGFjdGlvbnMvdXBsb2FkLWFydGlmYWN0QHY0CiAgICAgICAgd2l0aDoKICAgICAgICAgIG5hbWU6IGFwcC1hcGsKICAgICAgICAgIHBhdGg6IGFwcC5hcGsK
+name: Test Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run build script
+        run: python3 build.py
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-apk
+          path: app.apk
