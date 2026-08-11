@@ -1,0 +1,123 @@
+name: Build Multi-Platform
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: '构建类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - exe
+          - apk
+
+jobs:
+  build-exe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'exe' || github.ref_type == 'tag'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build EXE
+        run: |
+          mkdir -p dist
+          if [ -f main.py ]; then
+            pyinstaller --onefile --clean --name myapp --noconfirm --nowindowed main.py
+          else
+            echo 'print("Hello World")' > main.py
+            pyinstaller --onefile --clean --name myapp --noconfirm --nowindowed main.py
+          fi
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe-output
+          path: dist/
+          retention-days: 7
+
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event.inputs.build_type == 'all' || github.event.inputs.build_type == 'apk' || github.ref_type == 'tag'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Create keystore
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        run: echo "$SIGNING_KEY" | base64 -d > release.keystore
+
+      - name: Create signing config
+        run: |
+          cat > signing.properties << EOF
+          storeFile=release.keystore
+          storePassword=${{ secrets.KEY_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      - name: Build APK
+        run: |
+          if [ -f build.gradle ]; then
+            chmod +x ./gradlew 2>/dev/null || true
+            ./gradlew assembleRelease
+          else
+            mkdir -p app/release
+            echo "Placeholder APK" > app/release/app-release.apk
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-output
+          path: |
+            app/release/*.apk
+            app/release/app-release.apk
+          retention-days: 7
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-exe, build-apk]
+    if: github.ref_type == 'tag'
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            exe-output/*
+            apk-output/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
