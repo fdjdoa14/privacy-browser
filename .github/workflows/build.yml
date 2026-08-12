@@ -51,7 +51,7 @@ jobs:
           cache: gradle
       
       - name: Build APK
-        if: contains(github.ref, 'v') && exists('build.gradle')
+        if: contains(github.ref, 'v')
         run: |
           if [ -f "gradlew" ]; then
             chmod +x gradlew
